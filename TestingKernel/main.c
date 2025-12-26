@@ -1,56 +1,13 @@
 #include <ntifs.h>
 
-#define GET_BASEADDR CTL_CODE( FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS  )
+#include "irp.h"
 
 ULONGLONG g_AcClientBase = 0;
+HANDLE g_AcClientPID = 0;
 PDEVICE_OBJECT g_pDevice;
 UNICODE_STRING g_DeviceName;
 UNICODE_STRING g_DosDeviceName;
 
-NTSTATUS IrpCreateClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
-{
-	UNREFERENCED_PARAMETER(DeviceObject);
-
-	DbgPrintEx(0, 0, "Irp create close called.");
-
-	NTSTATUS Status = STATUS_SUCCESS;
-
-	Irp->IoStatus.Information = 0;
-	Irp->IoStatus.Status = Status;
-
-	IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-	return Status;
-}
-
-NTSTATUS IrpControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
-{
-	UNREFERENCED_PARAMETER(DeviceObject);
-
-	DbgPrintEx(0, 0, "Irp control called.");
-
-	NTSTATUS Status = STATUS_UNSUCCESSFUL;
-	Irp->IoStatus.Information = 0;
-	Irp->IoStatus.Status = Status;
-
-	PIO_STACK_LOCATION StackLocation = IoGetCurrentIrpStackLocation(Irp);
-	switch (StackLocation->Parameters.DeviceIoControl.IoControlCode)
-	{
-	case GET_BASEADDR:
-		Status = STATUS_SUCCESS;
-
-		Irp->IoStatus.Information = sizeof(ULONGLONG);
-		Irp->IoStatus.Status = Status;
-
-		PULONGLONG pBuffer = Irp->AssociatedIrp.SystemBuffer;
-		*pBuffer = g_AcClientBase;
-		break;
-	}
-
-	IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-	return Status;
-}
 
 VOID ImageNotifyRoutine(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIMAGE_INFO ImageInfo)
 {
@@ -61,6 +18,7 @@ VOID ImageNotifyRoutine(PUNICODE_STRING FullImageName, HANDLE ProcessId, PIMAGE_
 		DbgPrintEx(0, 0, "ac_client.exe [%p] addr: %p\n", ProcessId, ImageInfo->ImageBase);
 
 		g_AcClientBase = (ULONGLONG)ImageInfo->ImageBase;
+		g_AcClientPID = ProcessId;
 	}
 }
 
